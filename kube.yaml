@@ -1,0 +1,77 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+    name: products
+    labels:
+        app: products
+spec:
+    replicas: 2
+    selector:
+        matchLabels:
+            app: products
+    revisionHistoryLimit: 5
+    minReadySeconds: 10
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            maxSurge: 2
+            maxUnavailable: 0
+    template:
+        metadata:
+            labels:
+                app: products
+        spec:
+            containers:
+                - name: products
+                  image: gcr.io/formal-scout-238206/kuberton:1.0
+
+                  imagePullPolicy: Always
+                  ports:
+                      - containerPort: 3000
+                        protocol: TCP
+                  readinessProbe:
+                       httpGet:
+                           path: /_healthz
+                           port: 3000
+                       initialDelaySeconds: 10
+                       periodSeconds: 10
+                       timeoutSeconds: 5
+                  livenessProbe:
+                       httpGet:
+                           path: /_healthz
+                           port: 3000
+                       initialDelaySeconds: 10
+                       periodSeconds: 10
+                       timeoutSeconds: 5
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: products
+  name: products
+  namespace: default
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - nodePort: 31724
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: products
+  sessionAffinity: None
+  type: NodePort
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: products
+spec:
+  backend:
+    serviceName: products
+    servicePort: 3000
